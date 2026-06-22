@@ -3,10 +3,8 @@ import pickle
 import numpy as np
 from flask import Flask, request, render_template_string
 
+# Vercel looks exactly for a top-level variable named 'app'
 app = Flask(__name__)
-
-# Target variable for Vercel Serverless deployment
-app_handler = app
 
 # Load your pickled AdaBoostClassifier model
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model_pkl")
@@ -43,7 +41,7 @@ HTML_TEMPLATE = """
                 {% if prediction is not none %}
                     <div class="text-center py-4">
                         <span class="text-xs text-indigo-200 block mb-1">Class Assignment Outcome</span>
-                        <div class="text-5xl font-black text-white tracking-tight drop-shadow-md animate-pulse">{{ prediction }}</div>
+                        <div class="text-5xl font-black text-white tracking-tight drop-shadow-md">{{ prediction }}</div>
                     </div>
                 {% else %}
                     <div class="text-center py-6 text-indigo-200 italic text-sm">
@@ -114,4 +112,47 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="sm:col-span-2 mt-2">
-                <button type="submit
+                <button type="submit" 
+                        class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition duration-200 cursor-pointer text-center tracking-wide uppercase text-sm">
+                    Evaluate Performance Metrics
+                </button>
+            </div>
+        </form>
+
+    </div>
+
+</body>
+</html>
+"""
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template_string(HTML_TEMPLATE, prediction=None, inputs={})
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    if not model:
+        return render_template_string(HTML_TEMPLATE, prediction="Missing Binary File Error", inputs=request.form)
+
+    try:
+        features = [
+            float(request.form.get("Hours_Coding", 0)),
+            float(request.form.get("AI_Usage_Hours", 0)),
+            float(request.form.get("Lines_of_Code", 0)),
+            float(request.form.get("Commits", 0)),
+            float(request.form.get("Bugs_Reported", 0)),
+            float(request.form.get("Sleep_Hours", 0)),
+            float(request.form.get("Distractions", 0)),
+            float(request.form.get("Cognitive_Load", 0)),
+            float(request.form.get("Stress_Level", 0))
+        ]
+        
+        input_data = np.array([features])
+        prediction = model.predict(input_data)[0]
+        
+        return render_template_string(HTML_TEMPLATE, prediction=str(prediction), inputs=request.form)
+    except Exception as e:
+        return render_template_string(HTML_TEMPLATE, prediction=f"Execution Failed: {str(e)}", inputs=request.form)
+
+if __name__ == "__main__":
+    app.run(debug=True)
